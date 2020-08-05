@@ -105,7 +105,7 @@ async def app_factory() -> web.Application:
 
 
 @click.command()
-@click.option('-p', '--port', type=click.IntRange(0, 65535), default=7700, show_default=True,
+@click.option('-p', '--port', type=click.IntRange(0, 65535), default=None, show_default=True,
               help="The port the server will listen to.")
 @click.option('-h', '--path', default=None, help="The path were the server will be located.")
 def main(port, path):
