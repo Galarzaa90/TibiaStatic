@@ -1,10 +1,10 @@
-#  Copyright (c) 2019. Allan Galarza
+#  Copyright (c) 2020. Allan Galarza
 #  Unathorized copying of this file, via any medium is strictly prohibited
 #  Propietary and confidential.
 import logging
 import mimetypes
 import os
-from logging.handlers import TimedRotatingFileHandler
+import datetime
 from typing import NoReturn
 
 import aiofiles
@@ -29,7 +29,7 @@ logging_formatter = logging.Formatter('[%(asctime)s][%(levelname)s] %(message)s'
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging_formatter)
 
-log = logging.getLogger("orchestrator")
+log = logging.getLogger("tibiastatic")
 log.setLevel(logging.DEBUG)
 log.addHandler(console_handler)
 
@@ -38,6 +38,12 @@ routes = aiohttp.web.RouteTableDef()
 STATIC_BASE_URL = "https://static.tibia.com/"
 
 STORAGE_PATH = "storage/"
+
+GUILD_LOGO_DURATION = datetime.timedelta(hours=12)
+
+
+def get_modified_time(path):
+    return datetime.datetime.fromtimestamp(os.path.getmtime(path))
 
 
 @routes.get('/{path:.*}')
@@ -53,11 +59,16 @@ async def serve_image(request: aiohttp.web.Request):
         async with aiofiles.open(file_path, mode="rb") as f:
             log.info(f"[{path}] Getting resource from disk")
             data = await f.read()
-            content_type, _ = mimetypes.guess_type(filename)
-            log.info(f"[{path}] Resource read from disk | {humanfriendly.format_size(len(data))}")
-            return aiohttp.web.Response(body=data, content_type=content_type)
+            now = datetime.datetime.now()
+            if not ('guildlogos' in path and now-get_modified_time(file_path) > GUILD_LOGO_DURATION):
+                content_type, _ = mimetypes.guess_type(filename)
+                log.info(f"[{path}] Resource read from disk | {humanfriendly.format_size(len(data))}")
+                return aiohttp.web.Response(body=data, content_type=content_type)
+            log.info(f"[{path}] File exceeded age, fetching from static.tibia.com")
     except FileNotFoundError:
         log.info(f"[{path}] File not in disk, fetching from static.tibia.com")
+    except Exception:
+        log.exception(f"[{path}]")
     async with request.app["client_session"].get(f"{STATIC_BASE_URL}{path}") as response:
         if response.status == 200:
             filename = os.path.basename(path)
