@@ -15,6 +15,7 @@ import click
 __version__ = "v0.1.0"
 
 # Ensure logs folder exists
+import humanfriendly
 from aiohttp import web
 
 os.makedirs("logs", exist_ok=True)
@@ -36,36 +37,40 @@ routes = aiohttp.web.RouteTableDef()
 
 STATIC_BASE_URL = "https://static.tibia.com/"
 
+STORAGE_PATH = "storage/"
+
+
 @routes.get('/{path:.*}')
 async def serve_image(request: aiohttp.web.Request):
     """Shows status information about the server."""
     path = request.match_info["path"]
-    log.info(f"Path: {path}")
+    file_path = os.path.join(STORAGE_PATH, path)
     filename = os.path.basename(path)
     _, ext = os.path.splitext(path)
     if not ext:
         return aiohttp.web.Response(text="Path must be a file", status=403)
     try:
-        async with aiofiles.open(path, mode="rb") as f:
-            log.info("Getting resource from disk")
+        async with aiofiles.open(file_path, mode="rb") as f:
+            log.info(f"[{path}] Getting resource from disk")
             data = await f.read()
             content_type, _ = mimetypes.guess_type(filename)
+            log.info(f"[{path}] Resource read from disk | {humanfriendly.format_size(len(data))}")
             return aiohttp.web.Response(body=data, content_type=content_type)
     except FileNotFoundError:
-        log.info("File not in disk, fetching from static.tibia.com")
+        log.info(f"[{path}] File not in disk, fetching from static.tibia.com")
     async with request.app["client_session"].get(f"{STATIC_BASE_URL}{path}") as response:
         if response.status == 200:
             filename = os.path.basename(path)
             directories = path.replace(filename, "")
             data = await response.read()
-            log.info("Resource fetched")
-            os.makedirs(directories, exist_ok=True)
-            async with aiofiles.open(path, mode="wb") as f:
+            log.info(f"[{path}] Resource fetched | {humanfriendly.format_size(len(data))}")
+            os.makedirs(os.path.join(STORAGE_PATH, directories), exist_ok=True)
+            async with aiofiles.open(file_path, mode="wb") as f:
                 content_type = response.headers.get('content-type')
                 await f.write(data)
-                log.info("Saving resource to disk")
+                log.info(f"[{path}] Saving resource to disk")
             return aiohttp.web.Response(body=data, content_type=content_type)
-    return aiohttp.web.Response(status=404)
+    return aiohttp.web.Response(text=f"Could not find resource {path}", status=404)
 
 
 async def client_session_ctx(app: web.Application) -> NoReturn:
@@ -91,16 +96,15 @@ async def app_factory() -> web.Application:
     """
     See: https://docs.aiohttp.org/en/stable/web_advanced.html
     """
-    log.debug('[APP Factory] Creating Application (entering APP Factory)')
+    log.debug('Creating application')
     app = web.Application()
-
-    log.debug('[APP Factory] Adding Routes')
+    log.debug('Adding routes')
     app.add_routes(routes)
 
-    log.debug('[APP Factory] Registering Cleanup contexts')
+    log.debug('Registering cleanup contexts')
     app.cleanup_ctx.append(client_session_ctx)
 
-    log.debug('[APP Factory] APP is now prepared and can be returned by APP Factory')
+    log.debug('Application started')
     return app
 
 
