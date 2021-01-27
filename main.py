@@ -16,6 +16,7 @@ __version__ = "v0.1.0"
 
 # Ensure logs folder exists
 import humanfriendly
+import prometheus_client
 from aiohttp import web
 
 os.makedirs("logs", exist_ok=True)
@@ -25,7 +26,7 @@ logging.logThreads = 0
 logging.logProcesses = 0
 logging._srcfile = None
 
-logging_formatter = logging.Formatter('[%(asctime)s][%(levelname)s] %(message)s')
+logging_formatter = logging.Formatter('\u200b[%(asctime)s][%(levelname)s] %(message)s')
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging_formatter)
 
@@ -46,6 +47,13 @@ def get_modified_time(path):
     return datetime.datetime.fromtimestamp(os.path.getmtime(path))
 
 
+request_counter = prometheus_client.Counter("request", "Counter for received requests.", ("result",))
+size_counter = prometheus_client.Counter("file_size", "Counts served size in bytes.")
+request_counter.labels("success")
+request_counter.labels("forbidden")
+request_counter.labels("not_found")
+
+
 @routes.get('/{path:.*}')
 async def serve_image(request: aiohttp.web.Request):
     """Shows status information about the server."""
@@ -54,6 +62,7 @@ async def serve_image(request: aiohttp.web.Request):
     filename = os.path.basename(path)
     _, ext = os.path.splitext(path)
     if not ext:
+        request_counter.labels("forbidden").inc()
         return aiohttp.web.Response(text="Path must be a file", status=403)
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
@@ -63,6 +72,8 @@ async def serve_image(request: aiohttp.web.Request):
             if not ('guildlogos' in path and now-get_modified_time(file_path) > GUILD_LOGO_DURATION):
                 content_type, _ = mimetypes.guess_type(filename)
                 log.info(f"[{path}] Resource read from disk | {humanfriendly.format_size(len(data))}")
+                request_counter.labels("success").inc()
+                size_counter.inc(len(data))
                 return aiohttp.web.Response(body=data, content_type=content_type)
             log.info(f"[{path}] File exceeded age, fetching from static.tibia.com")
     except FileNotFoundError:
@@ -80,7 +91,10 @@ async def serve_image(request: aiohttp.web.Request):
                 content_type = response.headers.get('content-type')
                 await f.write(data)
                 log.info(f"[{path}] Saving resource to disk")
+            request_counter.labels("success").inc()
+            size_counter.inc(len(data))
             return aiohttp.web.Response(body=data, content_type=content_type)
+    request_counter.labels("not_found").inc()
     return aiohttp.web.Response(text=f"Could not find resource {path}", status=404)
 
 
@@ -126,6 +140,7 @@ async def app_factory() -> web.Application:
 def main(port, path):
     """Starts the orchestrator service."""
     """Launches the server."""
+    prometheus_client.start_http_server(7510)
     aiohttp.web.run_app(app_factory(), path=path, port=port)
 
 

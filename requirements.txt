@@ -2,3 +2,4 @@ aiofiles
 aiohttp
 click
 humanfriendly
+prometheus_client
