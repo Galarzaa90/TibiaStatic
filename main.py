@@ -140,7 +140,7 @@ async def app_factory() -> web.Application:
 def main(port, path):
     """Starts the orchestrator service."""
     """Launches the server."""
-    prometheus_client.start_http_server(7510)
+    prometheus_client.start_http_server(7510, '0.0.0.0')
     aiohttp.web.run_app(app_factory(), path=path, port=port)
 
 
