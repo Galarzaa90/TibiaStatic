@@ -47,8 +47,8 @@ def get_modified_time(path):
     return datetime.datetime.fromtimestamp(os.path.getmtime(path))
 
 
-request_counter = prometheus_client.Counter("request", "Counter for received requests.", ("result",))
-size_counter = prometheus_client.Counter("file_size", "Counts served size in bytes.")
+request_counter = prometheus_client.Counter("request_total", "Counter for received requests.", ("result",))
+size_counter = prometheus_client.Counter("file_size_bytes_total", "Counts served size in bytes.")
 request_counter.labels("success")
 request_counter.labels("forbidden")
 request_counter.labels("not_found")
