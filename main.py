@@ -134,14 +134,15 @@ async def app_factory() -> web.Application:
 
 
 @click.command()
-@click.option('-p', '--port', type=click.IntRange(0, 65535), default=None, show_default=True,
+@click.option('-p', '--port', type=click.IntRange(0, 65535), default=8000, show_default=True,
               help="The port the server will listen to.")
-@click.option('-h', '--path', default=None, help="The path were the server will be located.")
-def main(port, path):
+@click.option('-m', '--metrics-port', type=click.IntRange(0, 65535), default=8001, show_default=True,
+              help="The port where Prometheus metrics are available.")
+def main(port, metrics_port):
     """Starts the orchestrator service."""
     """Launches the server."""
-    prometheus_client.start_http_server(7510, '0.0.0.0')
-    aiohttp.web.run_app(app_factory(), path=path, port=port)
+    prometheus_client.start_http_server(metrics_port, '0.0.0.0')
+    aiohttp.web.run_app(app_factory(), port=port)
 
 
 if __name__ == "__main__":
