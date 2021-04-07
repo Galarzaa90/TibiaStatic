@@ -1,23 +1,43 @@
-#  Copyright (c) 2020. Allan Galarza
-#  Unathorized copying of this file, via any medium is strictly prohibited
-#  Propietary and confidential.
+"""
+MIT License
+
+Copyright (c) 2021 Allan Galarza
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+import datetime
 import logging
 import mimetypes
 import os
-import datetime
 from typing import NoReturn
 
 import aiofiles
 import aiohttp
 import aiohttp.web
 import click
+import humanfriendly
+import prometheus_client
+from aiohttp import web
 
 __version__ = "v0.1.0"
 
 # Ensure logs folder exists
-import humanfriendly
-import prometheus_client
-from aiohttp import web
 
 os.makedirs("logs", exist_ok=True)
 
@@ -63,7 +83,7 @@ async def serve_image(request: aiohttp.web.Request):
     _, ext = os.path.splitext(path)
     if not ext:
         request_counter.labels("forbidden").inc()
-        return aiohttp.web.Response(text="Path must be a file", status=403)
+        return aiohttp.web.HTTPForbidden(text="Path must be a file")
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             log.info(f"[{path}] Getting resource from disk")
@@ -95,7 +115,7 @@ async def serve_image(request: aiohttp.web.Request):
             size_counter.inc(len(data))
             return aiohttp.web.Response(body=data, content_type=content_type)
     request_counter.labels("not_found").inc()
-    return aiohttp.web.Response(text=f"Could not find resource {path}", status=404)
+    return aiohttp.web.HTTPNotFound(text=f"Could not find resource {path}")
 
 
 async def client_session_ctx(app: web.Application) -> NoReturn:
