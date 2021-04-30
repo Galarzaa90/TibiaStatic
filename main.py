@@ -37,10 +37,6 @@ from aiohttp import web
 
 __version__ = "v0.1.0"
 
-# Ensure logs folder exists
-
-os.makedirs("logs", exist_ok=True)
-
 # Logging optimization
 logging.logThreads = 0
 logging.logProcesses = 0
@@ -51,7 +47,7 @@ console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging_formatter)
 
 log = logging.getLogger("tibiastatic")
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 log.addHandler(console_handler)
 
 routes = aiohttp.web.RouteTableDef()
@@ -59,7 +55,7 @@ routes = aiohttp.web.RouteTableDef()
 STATIC_BASE_URL = "https://static.tibia.com/"
 
 STORAGE_PATH = "storage/"
-
+# How long until a logo image is detected as stale and has to be redownloaded.
 GUILD_LOGO_DURATION = datetime.timedelta(hours=12)
 
 
@@ -141,12 +137,8 @@ async def app_factory() -> web.Application:
     """
     See: https://docs.aiohttp.org/en/stable/web_advanced.html
     """
-    log.debug('Creating application')
     app = web.Application()
-    log.debug('Adding routes')
     app.add_routes(routes)
-
-    log.debug('Registering cleanup contexts')
     app.cleanup_ctx.append(client_session_ctx)
 
     log.debug('Application started')
@@ -163,7 +155,6 @@ def main(port, metrics_port):
     """Launches the server."""
     prometheus_client.start_http_server(metrics_port, '0.0.0.0')
     aiohttp.web.run_app(app_factory(), port=port)
-
 
 if __name__ == "__main__":
     main()
