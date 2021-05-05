@@ -70,6 +70,11 @@ request_counter.labels("forbidden")
 request_counter.labels("not_found")
 
 
+@routes.get('/healthcheck')
+async def healthcheck(request: aiohttp.web.Request):
+    return aiohttp.web.HTTPOk()
+
+
 @routes.get('/{path:.*}')
 async def serve_image(request: aiohttp.web.Request):
     """Shows status information about the server."""
