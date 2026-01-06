@@ -40,7 +40,6 @@ __version__ = "v0.1.0"
 # Logging optimization
 logging.logThreads = 0
 logging.logProcesses = 0
-logging._srcfile = None
 
 logging_formatter = logging.Formatter('\u200b[%(asctime)s][%(levelname)s] %(message)s')
 console_handler = logging.StreamHandler()
@@ -57,6 +56,8 @@ STATIC_BASE_URL = "https://static.tibia.com/"
 STORAGE_PATH = "storage/"
 # How long until a logo image is detected as stale and has to be redownloaded.
 GUILD_LOGO_DURATION = datetime.timedelta(hours=12)
+MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", str(10 * 1024 * 1024)))
+CLIENT_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 
 def get_modified_time(path):
@@ -79,16 +80,23 @@ async def healthcheck(request: aiohttp.web.Request):
 async def serve_image(request: aiohttp.web.Request):
     """Shows status information about the server."""
     path = request.match_info["path"]
-    file_path = os.path.join(STORAGE_PATH, path)
-    filename = os.path.basename(path)
-    _, ext = os.path.splitext(path)
+    normalized_path = os.path.normpath(path)
+    if os.path.isabs(normalized_path) or normalized_path.startswith(".."):
+        request_counter.labels("forbidden").inc()
+        return aiohttp.web.HTTPForbidden(text="Invalid path")
+    file_path = os.path.join(STORAGE_PATH, normalized_path)
+    filename = os.path.basename(normalized_path)
+    _, ext = os.path.splitext(normalized_path)
     if not ext:
         request_counter.labels("forbidden").inc()
         return aiohttp.web.HTTPForbidden(text="Path must be a file")
     try:
         async with aiofiles.open(file_path, mode="rb") as f:
             log.info(f"[{path}] Getting resource from disk")
-            data = await f.read()
+            data = await f.read(MAX_BODY_BYTES + 1)
+            if len(data) > MAX_BODY_BYTES:
+                request_counter.labels("forbidden").inc()
+                return aiohttp.web.HTTPRequestEntityTooLarge(text="File too large")
             now = datetime.datetime.now()
             if not ('guildlogos' in path and now-get_modified_time(file_path) > GUILD_LOGO_DURATION):
                 content_type, _ = mimetypes.guess_type(filename)
@@ -104,10 +112,20 @@ async def serve_image(request: aiohttp.web.Request):
     async with request.app["client_session"].get(f"{STATIC_BASE_URL}{path}") as response:
         if response.status == 200:
             filename = os.path.basename(path)
-            directories = path.replace(filename, "")
-            data = await response.read()
+            directories = os.path.dirname(normalized_path)
+            content_length = response.headers.get("content-length")
+            if content_length is not None and int(content_length) > MAX_BODY_BYTES:
+                request_counter.labels("forbidden").inc()
+                return aiohttp.web.HTTPRequestEntityTooLarge(text="File too large")
+            data = bytearray()
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                data.extend(chunk)
+                if len(data) > MAX_BODY_BYTES:
+                    request_counter.labels("forbidden").inc()
+                    return aiohttp.web.HTTPRequestEntityTooLarge(text="File too large")
             log.info(f"[{path}] Resource fetched | {humanfriendly.format_size(len(data))}")
-            os.makedirs(os.path.join(STORAGE_PATH, directories), exist_ok=True)
+            if directories:
+                os.makedirs(os.path.join(STORAGE_PATH, directories), exist_ok=True)
             async with aiofiles.open(file_path, mode="wb") as f:
                 content_type = response.headers.get('content-type')
                 await f.write(data)
@@ -130,7 +148,7 @@ async def client_session_ctx(app: web.Application) -> NoReturn:
         > https://docs.aiohttp.org/en/stable/web_advanced.html#data-sharing-aka-no-singletons-please
     """
     log.debug('Creating ClientSession')
-    app['client_session'] = aiohttp.ClientSession()
+    app['client_session'] = aiohttp.ClientSession(timeout=CLIENT_TIMEOUT)
 
     yield
 
