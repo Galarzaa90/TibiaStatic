@@ -5,6 +5,16 @@ RUN apk add --no-cache curl
 COPY requirements.txt .
 RUN pip install -r requirements.txt uvloop
 COPY main.py .
+
+LABEL maintainer="Allan Galarza <allan.galarza@gmail.com>"
+LABEL org.opencontainers.image.licenses="MIT License"
+LABEL org.opencontainers.image.authors="Allan Galarza <allan.galarza@gmail.com>"
+LABEL org.opencontainers.image.url="https://github.com/Galarzaa90/TibiaStatic"
+LABEL org.opencontainers.image.source="https://github.com/Galarzaa90/TibiaStatic"
+LABEL org.opencontainers.image.vendor="Allan Galarza <allan.galarza@gmail.com>"
+LABEL org.opencontainers.image.title="TibiaStatic"
+LABEL org.opencontainers.image.description="An aiohttp server that acts as proxy for resources in static.tibia.com"
+
 EXPOSE 8000
 EXPOSE 8001
 ENV PYTHONBUFFERED=1
