@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2021 Allan Galarza
+Copyright (c) 2026 Allan Galarza
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,7 @@ import click
 import humanfriendly
 import prometheus_client
 from aiohttp import web
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 __version__ = "v0.1.0"
 
@@ -76,6 +77,12 @@ async def healthcheck(request: aiohttp.web.Request):
     return aiohttp.web.HTTPOk()
 
 
+@routes.get('/metrics')
+async def metrics(request: aiohttp.web.Request):
+    data = generate_latest()
+    return aiohttp.web.Response(body=data, content_type=CONTENT_TYPE_LATEST)
+
+
 @routes.get('/{path:.*}')
 async def serve_image(request: aiohttp.web.Request):
     """Shows status information about the server."""
@@ -87,6 +94,7 @@ async def serve_image(request: aiohttp.web.Request):
     file_path = os.path.join(STORAGE_PATH, normalized_path)
     filename = os.path.basename(normalized_path)
     _, ext = os.path.splitext(normalized_path)
+
     if not ext:
         request_counter.labels("forbidden").inc()
         return aiohttp.web.HTTPForbidden(text="Path must be a file")
@@ -109,6 +117,7 @@ async def serve_image(request: aiohttp.web.Request):
         log.info(f"[{path}] File not in disk, fetching from static.tibia.com")
     except Exception:
         log.exception(f"[{path}]")
+
     async with request.app["client_session"].get(f"{STATIC_BASE_URL}{path}") as response:
         if response.status == 200:
             filename = os.path.basename(path)
@@ -171,12 +180,9 @@ async def app_factory() -> web.Application:
 @click.command()
 @click.option('-p', '--port', type=click.IntRange(0, 65535), default=8000, show_default=True,
               help="The port the server will listen to.")
-@click.option('-m', '--metrics-port', type=click.IntRange(0, 65535), default=8001, show_default=True,
-              help="The port where Prometheus metrics are available.")
-def main(port, metrics_port):
+def main(port):
     """Starts the orchestrator service."""
     """Launches the server."""
-    prometheus_client.start_http_server(metrics_port, '0.0.0.0')
     aiohttp.web.run_app(app_factory(), port=port)
 
 if __name__ == "__main__":

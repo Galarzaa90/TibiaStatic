@@ -20,7 +20,6 @@ Then you can run `main.py` to start it. It supports the following command line a
 | Argument               | Default       | Description                                           |
 | ---------------------- | ------------- | ----------------------------------------------------- |
 | `-p`, `--port`         | 8000          | The port where the HTTP server will be exposed to.    |
-| `-m`, `--metrics-port` | 8001          | The port where Prometheus metrics will be available.  |
 | `--help`               | --            | Shows information about the available options.        |
 
 For example:
@@ -39,4 +38,5 @@ address.
 | `localhost`      | https://static.tibia.com/images/forum/logo_hotsticky.gif  | `http://localhost/images/forum/logo_hotsticky.gif`                |
 | `example.com`    | https://static.tibia.com/images/news/doubleloot_small.png | `https://example.com/images/news/doubleloot_small.png`            |
 
+Prometheus metrics are available at `/metrics` on the same port as the server.
 
