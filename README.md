@@ -1,5 +1,12 @@
 # TibiaStatic
 
+[
+  ![Docker Image Version](https://img.shields.io/docker/v/galarzaa90/tibia-static?sort=semver)
+  ![Docker Image Size](https://img.shields.io/docker/image-size/galarzaa90/tibia-static)
+  ![Docker Pulls](https://img.shields.io/docker/pulls/galarzaa90/tibia-static)
+](https://hub.docker.com/r/galarzaa90/tibia-static)
+
+
 An [aiohttp](https://docs.aiohttp.org/) server that acts as proxy for resources in `static.tibia.com`, serving them from
 the server's disk, allowing images to be properly embedded in applications like Discord.
 
@@ -39,4 +46,3 @@ address.
 | `example.com`    | https://static.tibia.com/images/news/doubleloot_small.png | `https://example.com/images/news/doubleloot_small.png`            |
 
 Prometheus metrics are available at `/metrics` on the same port as the server.
-
