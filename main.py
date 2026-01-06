@@ -80,7 +80,7 @@ async def healthcheck(request: aiohttp.web.Request):
 @routes.get('/metrics')
 async def metrics(request: aiohttp.web.Request):
     data = generate_latest()
-    return aiohttp.web.Response(body=data, content_type=CONTENT_TYPE_LATEST)
+    return aiohttp.web.Response(body=data, headers={"Content-Type": CONTENT_TYPE_LATEST})
 
 
 @routes.get('/{path:.*}')
